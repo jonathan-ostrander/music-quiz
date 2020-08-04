@@ -56,18 +56,25 @@ object Game {
 
   private[this] val medals = Map(0 -> "🥇", 1 -> "🥈", 2 -> "🥉")
   case class Score(value: Map[UserId, Int]) {
-    def toEmbed(song: Song, songNum: Int): OutgoingEmbed = OutgoingEmbed(
-      title = Some(s"**That was: ${song.song} by ${song.artist}**"),
-      description = Some(
-        s"__**LEADERBOARD**__\n\n${value.toList.sortBy(-_._2).zipWithIndex.map {
-          case ((id, score), i) =>
-            val place = medals.get(i).getOrElse(s"#${i + 1}")
-            val spacing = if (medals.contains(i)) "\n" else ""
-            s"$place - <@${id.asString}> - $score pts$spacing"
-        }.mkString("\n")}"
-      ),
-      footer = Some(OutgoingEmbedFooter(s"Music Quiz - track $songNum/15"))
-    )
+    def formattedScore: String = value.toList.sortBy(-_._2).zipWithIndex.map {
+      case ((id, score), i) =>
+        val place = medals.get(i).getOrElse(s"#${i + 1}")
+        val spacing = if (medals.contains(i)) "\n" else ""
+        s"$place - <@${id.asString}> - $score pts$spacing"
+    }.mkString("\n")
+    def songEmbed(song: Song, songNum: Int): OutgoingEmbed =
+      OutgoingEmbed(
+        title = Some(s"**That was: ${song.song} by ${song.artist}**"),
+        description = Some(
+          s"__**LEADERBOARD**__\n\n$formattedScore"
+        ),
+        footer = Some(OutgoingEmbedFooter(s"Music Quiz - track $songNum/15"))
+      )
+    def endGameEmbed: OutgoingEmbed =
+      OutgoingEmbed(
+        title = Some("**Music Quiz Ranking**"),
+        description = Some(formattedScore),
+      )
   }
 
   val startEmbed = OutgoingEmbed(
@@ -104,8 +111,8 @@ object Game {
           ctx.log.info("NEW SONG CALLED")
           state.previous match {
             case None => ()
-            case Some(previous) => 
-              val embed = textChannel.sendMessage(embed = Some(score.toEmbed(previous, state.number)))
+            case Some(previous) =>
+              val embed = textChannel.sendMessage(embed = Some(score.songEmbed(previous, state.number)))
               client.requests.singleFuture(embed)
           }
           if (state.number < quizTracks.size) {
@@ -149,7 +156,8 @@ object Game {
             behavior(player, quizTracks, score, QuestionState(state.number + 1, None, None))
           }
         case (ctx, EndGame) =>
-          // send final score
+          val embed = textChannel.sendMessage(embed = Some(score.endGameEmbed))
+          client.requests.singleFuture(embed)
           Behaviors.stopped
       }
 
