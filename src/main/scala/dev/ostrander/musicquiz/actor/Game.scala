@@ -71,15 +71,26 @@ object Game {
     )
   }
 
-  val welcomeMessage = Source.fromResource("welcome.txt").toString
+  val startEmbed = OutgoingEmbed(
+    title = Some("🎶 **The Music Quiz will start shortly!**"),
+    description = Some(
+      """ | This game will have 15 song previews, 30 seconds per song.
+          |
+          | You'll have to guess the artist name and the song name.
+          |
+          | + 1 point for the song name
+          | + 1 point for the artist name
+          | + 3 points for both
+          |
+          | 🔥 Sit back and relax, the music quiz is starting in **10 seconds!**""".stripMargin('|')
+    ),
+  )
   val countdownUrl = "https://www.youtube.com/watch?v=HtDzVSgjjEc"
 
   val playerManager: AudioPlayerManager = new DefaultAudioPlayerManager
   AudioSourceManagers.registerRemoteSources(playerManager)
 
   def apply(client: DiscordClient, textChannel: TextGuildChannel, voiceChannel: VoiceGuildChannel)(implicit ec: ExecutionContext): Future[(FiniteDuration, Behavior[Command])] = {
-    def sendMessage(content: String): Future[Unit] =
-      client.requests.singleFuture(textChannel.sendMessage(content)).map(_ => ())
 
     val quiz = Quiz.random(15)
 
@@ -93,7 +104,8 @@ object Game {
         case (ctx, NewSong) =>
           ctx.log.info("NEW SONG CALLED")
           state.previous match {
-            case None => sendMessage("Quiz starting")
+            case None =>
+              client.requests.singleFuture(textChannel.sendMessage(embed = Some(startEmbed)))
             case Some(previous) => 
               val embed = textChannel.sendMessage(embed = Some(score.toEmbed(previous, state.number - 1)))
               client.requests.singleFuture(embed)
