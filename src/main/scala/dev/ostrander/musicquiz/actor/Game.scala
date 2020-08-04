@@ -128,9 +128,9 @@ object Game {
           ctx.self ! Answer(mc, AnswerResult(state.song, mc.message.content))
           Behaviors.same
         case (ctx, Answer(mc, result)) =>
-        val alreadyGotten = List(state.artistCorrect.map(_ => Artist), state.titleCorrect.map(_ => Title)).flatten
-        val actualResult = result.diff(alreadyGotten)
-        ctx.log.info(s"Received answer: ${mc.message.content} with corrects ${actualResult.corrects}")
+          val alreadyGotten = List(state.artistCorrect.map(_ => Artist), state.titleCorrect.map(_ => Title)).flatten
+          val actualResult = result.diff(alreadyGotten)
+          ctx.log.info(s"Received answer: ${mc.message.content} with corrects ${actualResult.corrects}")
           if (actualResult.incorrect) {
             client.requests.singleFuture(mc.message.createReaction("❌"))
             Behaviors.same
