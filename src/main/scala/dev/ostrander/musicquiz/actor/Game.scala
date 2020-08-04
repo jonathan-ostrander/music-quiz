@@ -4,6 +4,7 @@ import ackcord.APIMessage.MessageCreate
 import ackcord.DiscordClient
 import ackcord.data.OutgoingEmbed
 import ackcord.data.OutgoingEmbedFooter
+import ackcord.data.OutgoingEmbedThumbnail
 import ackcord.data.TextGuildChannel
 import ackcord.data.User
 import ackcord.data.UserId
@@ -64,7 +65,8 @@ object Game {
     }.mkString("\n")
     def songEmbed(song: Song, songNum: Int): OutgoingEmbed =
       OutgoingEmbed(
-        title = Some(s"**That was: ${song.song} by ${song.artist}**"),
+        title = Some(s"**That was: ${song.title} by ${song.artists.map(_.name).mkString(" & ")}**"),
+        thumbnail = Some(OutgoingEmbedThumbnail(song.albumCoverUrl)),
         description = Some(
           s"__**LEADERBOARD**__\n\n$formattedScore"
         ),
@@ -108,7 +110,6 @@ object Game {
     def behavior(player: AudioPlayer, quizTracks: List[AudioTrack], score: Score, state: QuestionState): Behavior[Command] =
       Behaviors.receive {
         case (ctx, NewSong) =>
-          ctx.log.info("NEW SONG CALLED")
           state.previous match {
             case None => ()
             case Some(previous) =>
@@ -127,8 +128,9 @@ object Game {
           ctx.self ! Answer(mc, AnswerResult(state.song, mc.message.content))
           Behaviors.same
         case (ctx, Answer(mc, result)) =>
-          val alreadyGotten = List(state.artistCorrect.map(_ => Artist), state.titleCorrect.map(_ => Title)).flatten
-          val actualResult = result.diff(alreadyGotten)
+        val alreadyGotten = List(state.artistCorrect.map(_ => Artist), state.titleCorrect.map(_ => Title)).flatten
+        val actualResult = result.diff(alreadyGotten)
+        ctx.log.info(s"Received answer: ${mc.message.content} with corrects ${actualResult.corrects}")
           if (actualResult.incorrect) {
             client.requests.singleFuture(mc.message.createReaction("❌"))
             Behaviors.same
