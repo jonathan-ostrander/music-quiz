@@ -2,6 +2,8 @@ package dev.ostrander.musicquiz.actor
 
 import ackcord.APIMessage.MessageCreate
 import ackcord.DiscordClient
+import ackcord.data.OutgoingEmbed
+import ackcord.data.OutgoingEmbedFooter
 import ackcord.data.TextGuildChannel
 import ackcord.data.User
 import ackcord.data.UserId
@@ -21,9 +23,6 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
-import scala.io.Source
-import ackcord.data.OutgoingEmbed
-import ackcord.data.OutgoingEmbedFooter
 
 object Game {
   sealed trait Command
@@ -104,10 +103,9 @@ object Game {
         case (ctx, NewSong) =>
           ctx.log.info("NEW SONG CALLED")
           state.previous match {
-            case None =>
-              client.requests.singleFuture(textChannel.sendMessage(embed = Some(startEmbed)))
+            case None => ()
             case Some(previous) => 
-              val embed = textChannel.sendMessage(embed = Some(score.toEmbed(previous, state.number - 1)))
+              val embed = textChannel.sendMessage(embed = Some(score.toEmbed(previous, state.number)))
               client.requests.singleFuture(embed)
           }
           if (state.number < quizTracks.size) {
@@ -168,6 +166,7 @@ object Game {
       case ((player, t: AudioTrack), quizTracks) =>
         player.startTrack(t, false)
         client.setPlaying(voiceChannel.guildId, true)
+        client.requests.singleFuture(textChannel.sendMessage(embed = Some(startEmbed)))
         (FiniteDuration(t.getDuration(), TimeUnit.MILLISECONDS), behavior(player, quizTracks, Score(Map.empty), QuestionState(0, None, None)))
       case _ =>
         sys.error("Failed to load countdown")

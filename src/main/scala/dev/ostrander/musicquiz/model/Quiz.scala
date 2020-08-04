@@ -13,7 +13,7 @@ case class Song(
   song: String,
   preview: String,
 ) {
-  def isArtist(value: String): Boolean = Quiz.isCorrect(artist, value)
+  def isArtist(value: String): Boolean = (artist :: artist.split(" & ").toList ++ artist.split(" Featuring ")).exists(Quiz.isCorrect(_, value))
   def isTitle(value: String): Boolean = Quiz.isCorrect(song, value)
 }
 
