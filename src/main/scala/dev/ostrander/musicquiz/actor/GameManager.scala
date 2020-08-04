@@ -2,6 +2,7 @@ package dev.ostrander.musicquiz.actor
 
 import ackcord.APIMessage.MessageCreate
 import ackcord.DiscordClient
+import ackcord.data.TextChannel
 import ackcord.data.TextChannelId
 import ackcord.data.TextGuildChannel
 import ackcord.data.VoiceGuildChannel
@@ -11,7 +12,6 @@ import akka.actor.typed.scaladsl.Behaviors
 import scala.concurrent.ExecutionContext
 import scala.util.Failure
 import scala.util.Success
-import ackcord.data.TextChannel
 
 object GameManager {
   sealed trait Command

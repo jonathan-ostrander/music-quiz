@@ -17,11 +17,13 @@ import com.sedmelluq.discord.lavaplayer.source.AudioSourceManagers
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack
 import dev.ostrander.musicquiz.model.Quiz
 import dev.ostrander.musicquiz.model.Song
+import java.util.concurrent.TimeUnit
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
-import scala.io.Source
 import scala.concurrent.duration.FiniteDuration
-import java.util.concurrent.TimeUnit
+import scala.io.Source
+import ackcord.data.OutgoingEmbed
+import ackcord.data.OutgoingEmbedFooter
 
 object Game {
   sealed trait Command
@@ -53,7 +55,21 @@ object Game {
       )
   }
 
-  case class Score(value: Map[UserId, Int])
+  private[this] val medals = Map(0 -> "🥇", 1 -> "🥈", 2 -> "🥉")
+  case class Score(value: Map[UserId, Int]) {
+    def toEmbed(song: Song, songNum: Int): OutgoingEmbed = OutgoingEmbed(
+      title = Some(s"**That was: ${song.song} by ${song.artist}**"),
+      description = Some(
+        s"__**LEADERBOARD**__\n\n${value.toList.sortBy(-_._2).zipWithIndex.map {
+          case ((id, score), i) =>
+            val place = medals.get(i).getOrElse(s"#${i + 1}")
+            val spacing = if (medals.contains(i)) "\n" else ""
+            s"$place - <@${id.asString}> - $score pts$spacing"
+        }.mkString("\n")}"
+      ),
+      footer = Some(OutgoingEmbedFooter(s"Music Quiz - track $songNum/15"))
+    )
+  }
 
   val welcomeMessage = Source.fromResource("welcome.txt").toString
   val countdownUrl = "https://www.youtube.com/watch?v=HtDzVSgjjEc"
@@ -79,8 +95,8 @@ object Game {
           state.previous match {
             case None => sendMessage("Quiz starting")
             case Some(previous) => 
-              sendMessage(s"Last song was ${previous.song} by ${previous.artist}")
-              sendMessage(s"The score is ${score.value}")
+              val embed = textChannel.sendMessage(embed = Some(score.toEmbed(previous, state.number - 1)))
+              client.requests.singleFuture(embed)
           }
           if (state.number < quizTracks.size) {
             val track = quizTracks(state.number)
@@ -106,6 +122,7 @@ object Game {
               if (actualResult.corrects(Artist) && actualResult.corrects(Title)) state.copy(titleCorrect = userId, artistCorrect = userId) -> 3
               else if (actualResult.corrects(Artist)) state.copy(artistCorrect = userId) -> (if (state.titleCorrect == userId) 2 else 1)
               else state.copy(titleCorrect = userId) -> (if (state.artistCorrect == userId) 2 else 1)
+            userId.foreach(id => client.requests.singleFuture(textChannel.sendMessage(s"<@${id.asString}> Correct! You earn **$scoreToAdd pts**")))
             val newScore = userId.map(id => Score(score.value + (id -> (score.value.get(id).getOrElse(0) + scoreToAdd)))).getOrElse(score)
 
             if (newState.artistCorrect.isDefined && newState.titleCorrect.isDefined) {
