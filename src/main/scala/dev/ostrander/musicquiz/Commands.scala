@@ -15,4 +15,9 @@ class Commands(
     GuildVoiceCommand.named(Seq("!"), Seq("start"), mustMention = false).parsing[RemainingAsString].withSideEffects { r =>
       gameActor ! GameManager.CreateGame(r.textChannel, r.voiceChannel)
     }
+
+  val reset: NamedCommand[RemainingAsString] =
+    GuildCommand.named(Seq("!"), Seq("reset"), mustMention = false).parsing[RemainingAsString].withSideEffects { r =>
+      gameActor ! GameManager.Reset(r.textChannel)
+    }
 }

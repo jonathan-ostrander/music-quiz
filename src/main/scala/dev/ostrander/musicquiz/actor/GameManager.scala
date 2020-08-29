@@ -22,6 +22,7 @@ object GameManager {
   case class GameCreated(createGame: CreateGame, ref: ActorRef[Game.Command]) extends Command
   case class Message(mc: MessageCreate) extends Command
   case class EndGame(textChannel: TextGuildChannel) extends Command
+  case class Reset(textChannel: TextGuildChannel) extends Command
 
   def apply(client: DiscordClient)(implicit ec: ExecutionContext): Behavior[Command] = {
     def behavior(games: Map[TextChannelId, ActorRef[Game.Command]]): Behavior[Command] =
@@ -48,6 +49,9 @@ object GameManager {
             games.get(mc.message.channelId).foreach(_ ! Game.InGame(mc))
           Behaviors.same
         case (ctx, EndGame(tc)) =>
+          behavior(games - tc.id)
+        case (ctx, Reset(tc)) =>
+          games.get(tc.id).foreach(_ ! Game.EndGame)
           behavior(games - tc.id)
       }
     behavior(Map.empty)

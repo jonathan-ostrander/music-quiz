@@ -181,6 +181,7 @@ object Game {
           val embed = textChannel.sendMessage(embed = Some(score.endGameEmbed))
           client.requests.singleFuture(embed)
           client.leaveChannel(voiceChannel.guildId, destroyPlayer = true)
+          player.destroy()
           Behaviors.stopped
       }
 
