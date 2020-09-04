@@ -144,7 +144,7 @@ object Game {
           val alreadyGotten = List(state.artistCorrect.map(_ => Artist), state.titleCorrect.map(_ => Title)).flatten
           val actualResult = result.diff(alreadyGotten)
           ctx.log.info(s"Received answer: ${mc.message.content} with corrects ${actualResult.corrects}")
-          if (actualResult.incorrect || mc.message.authorUsername == "smallthor" || mc.message.authorUsername == "4") {
+          if (actualResult.incorrect) {
             client.requests.singleFuture(mc.message.createReaction("❌"))
             Behaviors.same
           } else {
