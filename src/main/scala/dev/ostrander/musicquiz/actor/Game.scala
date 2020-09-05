@@ -20,6 +20,9 @@ import com.sedmelluq.discord.lavaplayer.source.AudioSourceManagers
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack
 import dev.ostrander.musicquiz.model.Quiz
 import dev.ostrander.musicquiz.model.Song
+import dev.ostrander.musicquiz.store.GameStore
+import io.getquill.PostgresAsyncContext
+import io.getquill.SnakeCase
 import java.util.concurrent.TimeUnit
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
@@ -104,6 +107,7 @@ object Game {
     textChannel: TextGuildChannel,
     voiceChannel: VoiceGuildChannel,
   )(implicit ec: ExecutionContext): Future[(FiniteDuration, Behavior[Command])] = {
+    val store = GameStore(new PostgresAsyncContext(SnakeCase, "database"))
 
     val quiz = Quiz.random(gameLength)
 
@@ -180,6 +184,7 @@ object Game {
         case (ctx, EndGame) =>
           val embed = textChannel.sendMessage(embed = Some(score.endGameEmbed))
           client.requests.singleFuture(embed)
+          store.saveGame(voiceChannel.guildId, score)
           client.leaveChannel(voiceChannel.guildId, destroyPlayer = true)
           player.destroy()
           Behaviors.stopped

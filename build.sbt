@@ -19,6 +19,7 @@ lazy val root = (project in file("."))
       "io.spray" %%  "spray-json" % "1.3.5",
       "ch.qos.logback" % "logback-classic" % "1.2.3",
       "org.apache.commons" % "commons-text" % "1.9",
+      "io.getquill" %% "quill-async-postgres" % "3.5.2",
       scalaTest % Test,
     ),
     assemblyMergeStrategy in assembly := {
