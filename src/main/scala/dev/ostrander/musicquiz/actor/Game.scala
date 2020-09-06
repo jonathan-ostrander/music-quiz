@@ -21,8 +21,6 @@ import com.sedmelluq.discord.lavaplayer.track.AudioTrack
 import dev.ostrander.musicquiz.model.Quiz
 import dev.ostrander.musicquiz.model.Song
 import dev.ostrander.musicquiz.store.GameStore
-import io.getquill.PostgresAsyncContext
-import io.getquill.SnakeCase
 import java.util.concurrent.TimeUnit
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
@@ -61,7 +59,7 @@ object Game {
   private[this] val gameLength = 15
   private[this] val medals = Map(0 -> "🥇", 1 -> "🥈", 2 -> "🥉")
   case class Score(value: Map[UserId, Int]) {
-    def formattedScore: String = value.toList.sortBy(-_._2).zipWithIndex.map {
+    def formattedScore: String = value.toList.filter(_._2 > 0).sortBy(-_._2).zipWithIndex.map {
       case ((id, score), i) =>
         val place = medals.get(i).getOrElse(s"#${i + 1}")
         val spacing = if (medals.contains(i)) "\n" else ""
@@ -106,9 +104,8 @@ object Game {
     client: DiscordClient,
     textChannel: TextGuildChannel,
     voiceChannel: VoiceGuildChannel,
+    store: GameStore,
   )(implicit ec: ExecutionContext): Future[(FiniteDuration, Behavior[Command])] = {
-    val store = GameStore(new PostgresAsyncContext(SnakeCase, "database"))
-
     val quiz = Quiz.random(gameLength)
 
     case class QuestionState(number: Int, titleCorrect: Option[UserId], artistCorrect: Option[UserId]) {
@@ -147,13 +144,17 @@ object Game {
         case (ctx, Answer(mc, result)) =>
           val alreadyGotten = List(state.artistCorrect.map(_ => Artist), state.titleCorrect.map(_ => Title)).flatten
           val actualResult = result.diff(alreadyGotten)
+          val userId = mc.message.authorUserId
           ctx.log.info(s"Received answer: ${mc.message.content} with corrects ${actualResult.corrects}")
           if (actualResult.incorrect) {
             client.requests.singleFuture(mc.message.createReaction("❌"))
-            Behaviors.same
+            val newScore = userId.map(id =>
+              if (score.value.contains(id)) score
+              else score.copy(value = score.value + (id -> 0))
+            ).getOrElse(score)
+            behavior(player, quizTracks, newScore, state)
           } else {
             client.requests.singleFuture(mc.message.createReaction("✅"))
-            val userId = mc.message.authorUserId
             val (newState, scoreToAdd) =
               if (actualResult.corrects(Artist) && actualResult.corrects(Title))
                 state.copy(titleCorrect = userId, artistCorrect = userId) -> 3
