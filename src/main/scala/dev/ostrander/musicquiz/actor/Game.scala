@@ -112,7 +112,7 @@ object Game {
       case at: AudioTrack => at
       case _ => sys.error("Failed to load starting track")
     }
-    val songsFuture: Future[List[Song]] = ???
+    val songsFuture: Future[List[Song]] = songStore.getRandomSongs(gameLength)
     val tracksFuture =
       songsFuture.flatMap { songs =>
         Future.sequence {
