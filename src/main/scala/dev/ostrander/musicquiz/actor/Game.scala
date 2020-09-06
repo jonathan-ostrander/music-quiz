@@ -144,13 +144,17 @@ object Game {
         case (ctx, Answer(mc, result)) =>
           val alreadyGotten = List(state.artistCorrect.map(_ => Artist), state.titleCorrect.map(_ => Title)).flatten
           val actualResult = result.diff(alreadyGotten)
+          val userId = mc.message.authorUserId
           ctx.log.info(s"Received answer: ${mc.message.content} with corrects ${actualResult.corrects}")
           if (actualResult.incorrect) {
             client.requests.singleFuture(mc.message.createReaction("❌"))
-            Behaviors.same
+            val newScore = userId.map(id =>
+              if (score.value.contains(id)) score
+              else score.copy(value = score.value + (id -> 0))
+            ).getOrElse(score)
+            behavior(player, quizTracks, newScore, state)
           } else {
             client.requests.singleFuture(mc.message.createReaction("✅"))
-            val userId = mc.message.authorUserId
             val (newState, scoreToAdd) =
               if (actualResult.corrects(Artist) && actualResult.corrects(Title))
                 state.copy(titleCorrect = userId, artistCorrect = userId) -> 3
