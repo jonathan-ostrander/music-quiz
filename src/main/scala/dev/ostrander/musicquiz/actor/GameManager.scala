@@ -10,6 +10,7 @@ import akka.actor.typed.ActorRef
 import akka.actor.typed.Behavior
 import akka.actor.typed.scaladsl.Behaviors
 import dev.ostrander.musicquiz.store.GameStore
+import dev.ostrander.musicquiz.store.SongStore
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Failure
@@ -27,14 +28,15 @@ object GameManager {
 
   def apply(
     client: DiscordClient,
-    store: GameStore,
+    gameStore: GameStore,
+    songStore: SongStore,
   )(
     implicit ec: ExecutionContext,
   ): Behavior[Command] = {
     def behavior(games: Map[TextChannelId, ActorRef[Game.Command]]): Behavior[Command] =
       Behaviors.receive[Command] {
         case (ctx, cg @ CreateGame(tc, vc)) =>
-          ctx.pipeToSelf(Game(client, tc, vc, store)) {
+          ctx.pipeToSelf(Game(client, tc, vc, gameStore, songStore)) {
             case Success(d -> behavior) => CreateGameWithBehavior(cg, d, behavior)
             case Failure(exception) => sys.error(exception.toString)
           }

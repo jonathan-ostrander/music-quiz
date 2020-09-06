@@ -18,9 +18,9 @@ import com.sedmelluq.discord.lavaplayer.player.AudioPlayerManager
 import com.sedmelluq.discord.lavaplayer.player.DefaultAudioPlayerManager
 import com.sedmelluq.discord.lavaplayer.source.AudioSourceManagers
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack
-import dev.ostrander.musicquiz.model.Quiz
 import dev.ostrander.musicquiz.model.Song
 import dev.ostrander.musicquiz.store.GameStore
+import dev.ostrander.musicquiz.store.SongStore
 import java.util.concurrent.TimeUnit
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
@@ -104,21 +104,62 @@ object Game {
     client: DiscordClient,
     textChannel: TextGuildChannel,
     voiceChannel: VoiceGuildChannel,
-    store: GameStore,
+    gameStore: GameStore,
+    songStore: SongStore,
   )(implicit ec: ExecutionContext): Future[(FiniteDuration, Behavior[Command])] = {
-    val quiz = Quiz.random(gameLength)
+    val joinChannel = client.joinChannel(voiceChannel.guildId, voiceChannel.id, playerManager.createPlayer())
+    val loadTrack = client.loadTrack(playerManager, countdownUrl).map {
+      case at: AudioTrack => at
+      case _ => sys.error("Failed to load starting track")
+    }
+    val songsFuture: Future[List[Song]] = ???
+    val tracksFuture =
+      songsFuture.flatMap { songs =>
+        Future.sequence {
+          songs.map(s =>
+            client.loadTrack(playerManager, s.preview).map {
+              case at: AudioTrack => at
+              case _ => sys.error("Failed to load audio track")
+            },
+          )
+        }
+      }
 
+    for {
+      player <- joinChannel
+      track <- loadTrack
+      songs <- songsFuture
+      tracks <- tracksFuture
+    } yield {
+      player.startTrack(track, false)
+      client.setPlaying(voiceChannel.guildId, true)
+      client.requests.singleFuture(textChannel.sendMessage(embed = Some(startEmbed)))
+      (
+        FiniteDuration(track.getDuration(), TimeUnit.MILLISECONDS),
+        GameContext(client, textChannel, voiceChannel, gameStore, player, songs, tracks).start,
+      )
+    }
+  }
+
+  case class GameContext(
+    client: DiscordClient,
+    textChannel: TextGuildChannel,
+    voiceChannel: VoiceGuildChannel,
+    gameStore: GameStore,
+    audioPlayer: AudioPlayer,
+    songs: List[Song],
+    quizTracks: List[AudioTrack],
+  ) {
     case class QuestionState(number: Int, titleCorrect: Option[UserId], artistCorrect: Option[UserId]) {
-      lazy val song: Song = quiz(number)
-      def previous: Option[Song] = if (number == 0) None else Some(quiz(number - 1))
+      lazy val song: Song = songs(number)
+      def previous: Option[Song] = if (number == 0) None else Some(songs(number - 1))
     }
 
+    def start(implicit executionCtx: ExecutionContext): Behavior[Command] = behavior(Score(Map.empty), QuestionState(0, None, None))
     def behavior(
-      player: AudioPlayer,
-      quizTracks: List[AudioTrack],
       score: Score,
       state: QuestionState,
-    ): Behavior[Command] =
+    )(implicit executionCtx: ExecutionContext): Behavior[Command] =
       Behaviors.receive {
         case (ctx, NewSong) =>
           val songMessage = state.previous match {
@@ -129,7 +170,7 @@ object Game {
           }
           if (state.number < quizTracks.size) {
             val track = quizTracks(state.number)
-            player.startTrack(track, false)
+            audioPlayer.startTrack(track, false)
             ctx.scheduleOnce(
               FiniteDuration(track.getDuration(), TimeUnit.MILLISECONDS),
               ctx.self,
@@ -152,7 +193,7 @@ object Game {
               if (score.value.contains(id)) score
               else score.copy(value = score.value + (id -> 0))
             ).getOrElse(score)
-            behavior(player, quizTracks, newScore, state)
+            behavior(newScore, state)
           } else {
             client.requests.singleFuture(mc.message.createReaction("✅"))
             val (newState, scoreToAdd) =
@@ -172,47 +213,23 @@ object Game {
 
             if (newState.artistCorrect.isDefined && newState.titleCorrect.isDefined) {
               ctx.self ! NewSong
-              behavior(player, quizTracks, newScore, QuestionState(state.number + 1, None, None))
+              behavior(newScore, QuestionState(state.number + 1, None, None))
             } else
-              behavior(player, quizTracks, newScore, newState)
+              behavior(newScore, newState)
           }
         case (ctx, Timeout(songNumber)) =>
           if (songNumber != state.number) Behaviors.same
           else {
             ctx.self ! NewSong
-            behavior(player, quizTracks, score, QuestionState(state.number + 1, None, None))
+            behavior(score, QuestionState(state.number + 1, None, None))
           }
         case (ctx, EndGame) =>
           val embed = textChannel.sendMessage(embed = Some(score.endGameEmbed))
           client.requests.singleFuture(embed)
-          store.saveGame(voiceChannel.guildId, score)
+          gameStore.saveGame(voiceChannel.guildId, score)
           client.leaveChannel(voiceChannel.guildId, destroyPlayer = true)
-          player.destroy()
+          audioPlayer.destroy()
           Behaviors.stopped
       }
-
-    val joinChannel = client.joinChannel(voiceChannel.guildId, voiceChannel.id, playerManager.createPlayer())
-    val loadTrack = client.loadTrack(playerManager, countdownUrl)
-    val tracks = Future.sequence {
-      quiz.map(s =>
-        client.loadTrack(playerManager, s.preview).map {
-          case at: AudioTrack => at
-          case _ => sys.error("Failed to load audio track")
-        },
-      )
-    }
-
-    joinChannel.zip(loadTrack).zip(tracks).map {
-      case ((player, t: AudioTrack), quizTracks) =>
-        player.startTrack(t, false)
-        client.setPlaying(voiceChannel.guildId, true)
-        client.requests.singleFuture(textChannel.sendMessage(embed = Some(startEmbed)))
-        (
-          FiniteDuration(t.getDuration(), TimeUnit.MILLISECONDS),
-          behavior(player, quizTracks, Score(Map.empty), QuestionState(0, None, None)),
-        )
-      case _ =>
-        sys.error("Failed to load countdown")
-    }
   }
 }

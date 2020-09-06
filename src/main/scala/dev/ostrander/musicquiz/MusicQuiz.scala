@@ -5,6 +5,7 @@ import ackcord.ClientSettings
 import ackcord.gateway.GatewayIntents
 import dev.ostrander.musicquiz.actor.GameManager
 import dev.ostrander.musicquiz.store.GameStore
+import dev.ostrander.musicquiz.store.SongStore
 import io.getquill.PostgresAsyncContext
 import io.getquill.SnakeCase
 
@@ -15,10 +16,13 @@ object MusicQuiz extends App {
   val intents = GatewayIntents.All
   val clientSettings = ClientSettings(token, intents = intents)
   import clientSettings.executionContext
-  val store = GameStore(new PostgresAsyncContext(SnakeCase, "database"))
+  val postgrexCtx = new PostgresAsyncContext[SnakeCase](SnakeCase, "database")
+  val gameStore = GameStore(postgrexCtx)
+  val songStore = SongStore(postgrexCtx)
+
 
   clientSettings.createClient().foreach { client =>
-    val game = clientSettings.system.systemActorOf(GameManager(client, store), "Games")
+    val game = clientSettings.system.systemActorOf(GameManager(client, gameStore, songStore), "Games")
 
     client.onEventSideEffects { cache =>
       {
@@ -27,7 +31,7 @@ object MusicQuiz extends App {
       }
     }
 
-    client.commands.bulkRunNamed(Commands(client.requests, game, store): _*)
+    client.commands.bulkRunNamed(Commands(client.requests, game, gameStore): _*)
 
     client.login()
   }
