@@ -95,7 +95,7 @@ object Game {
           | 🔥 Sit back and relax, the music quiz is starting in **10 seconds!**""".stripMargin('|'),
     ),
   )
-  val countdownPath = "countdown.mp3"
+  val countdownUrl = "https://drive.google.com/file/d/1D1fLX4KMNFk2GMYvoPqXht-Tpd_wR8lo/view?usp=sharing"
 
   val playerManager: AudioPlayerManager = new DefaultAudioPlayerManager
   AudioSourceManagers.registerRemoteSources(playerManager)
@@ -108,7 +108,7 @@ object Game {
     songStore: SongStore,
   )(implicit ec: ExecutionContext): Future[(FiniteDuration, Behavior[Command])] = {
     val joinChannel = client.joinChannel(voiceChannel.guildId, voiceChannel.id, playerManager.createPlayer())
-    val loadTrack = client.loadTrack(playerManager, countdownPath).map {
+    val loadTrack = client.loadTrack(playerManager, countdownUrl).map {
       case at: AudioTrack => at
       case _ => sys.error("Failed to load starting track")
     }
