@@ -95,7 +95,7 @@ object Game {
           | 🔥 Sit back and relax, the music quiz is starting in **10 seconds!**""".stripMargin('|'),
     ),
   )
-  val countdownUrl = "https://drive.google.com/file/d/1D1fLX4KMNFk2GMYvoPqXht-Tpd_wR8lo/view?usp=sharing"
+  val countdownUrl = "https://doc-0g-b0-docs.googleusercontent.com/docs/securesc/o42ho60nl1bcl6qcv242fs1rinrt8ihp/qkp39cc23oavqphcgnl1uovu20162tl0/1600289700000/09331132252551663766/09331132252551663766/1D1fLX4KMNFk2GMYvoPqXht-Tpd_wR8lo?e=download&authuser=0"
 
   val playerManager: AudioPlayerManager = new DefaultAudioPlayerManager
   AudioSourceManagers.registerRemoteSources(playerManager)
