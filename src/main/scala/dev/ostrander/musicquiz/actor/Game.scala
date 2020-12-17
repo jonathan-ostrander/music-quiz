@@ -95,7 +95,7 @@ object Game {
           | 🔥 Sit back and relax, the music quiz is starting in **10 seconds!**""".stripMargin('|'),
     ),
   )
-  val countdownUrl = "https://soundcloud.com/jonathan-ostrander/countdown"
+  val countdownUrl = "https://www.youtube.com/watch?v=RjEdmrxjIHQ"
 
   val playerManager: AudioPlayerManager = new DefaultAudioPlayerManager
   AudioSourceManagers.registerRemoteSources(playerManager)
