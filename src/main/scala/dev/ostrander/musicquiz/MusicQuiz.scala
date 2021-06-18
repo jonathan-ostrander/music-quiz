@@ -16,9 +16,9 @@ object MusicQuiz extends App {
   val intents = GatewayIntents.All
   val clientSettings = ClientSettings(token, intents = intents)
   import clientSettings.executionContext
-  val postgrexCtx = new PostgresAsyncContext[SnakeCase](SnakeCase, "database")
-  val gameStore = GameStore(postgrexCtx)
-  val songStore = SongStore(postgrexCtx)
+  val postgresCtx = new PostgresAsyncContext[SnakeCase](SnakeCase, "database")
+  val gameStore = GameStore(postgresCtx)
+  val songStore = SongStore(postgresCtx)
 
 
   clientSettings.createClient().foreach { client =>
