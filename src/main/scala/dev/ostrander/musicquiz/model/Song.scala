@@ -5,6 +5,7 @@ import spray.json.DefaultJsonProtocol._
 import spray.json.JsonFormat
 
 case class Song(
+  id: String,
   artists: List[Song.Artist],
   title: String,
   preview: String,
@@ -37,7 +38,7 @@ object Song {
   }
 
   implicit val artistFormat: JsonFormat[Artist] = jsonFormat2(Artist.apply)
-  implicit val songFormat: JsonFormat[Song] = jsonFormat5(Song.apply)
+  implicit val songFormat: JsonFormat[Song] = jsonFormat6(Song.apply)
 
   private[this] val jaccard = new JaccardSimilarity()
   private[this] val threshold: Double = 0.8
